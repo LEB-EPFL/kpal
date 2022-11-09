@@ -1,0 +1,84 @@
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry]
+name = "leb.kpal"
+version = "0.0.0"
+description = "Hardware control systems for experimental scientists"
+authors = ["Kyle M. Douglass <kyle.douglass@epfl.ch>"]
+packages = [
+    { include = "leb", from = "src" }
+]
+
+[tool.poetry.dependencies]
+pyserial-asyncio = "*"
+python = ">=3.10,<3.12"
+
+[tool.poetry.dev-dependencies]
+black = "*"
+isort = ">=5.0"
+mypy = "*"
+pylint = "*"
+pytest = "^7.1"
+tox = "^3"
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+testpaths = [
+    "tests",
+]
+
+[tool.tox]
+legacy_tox_ini = """
+[tox]
+envlist =
+    black
+    isort
+    mypy
+    pylint
+    py310
+    py311
+isolated_build = True
+
+[testenv]
+allowlist_externals = poetry
+commands =
+    poetry install -v
+    poetry run pytest
+
+[testenv:format]
+allowlist_externals = 
+    black
+    isort
+skip_install = True
+commands =
+    black .
+    isort .
+
+[testenv:{black, isort, mypy, pylint}]
+allowlist_externals =
+    black
+    isort
+    mypy
+    pylint
+skip_install = True
+commands =
+    black: black --check --diff .
+    isort: isort --check --diff .
+    mypy: mypy .
+    pylint: pylint src
+"""
+
+[tool.black]
+line-length = 100
+
+[tool.isort]
+profile = "black"
+
+[tool.mypy]
+warn_return_any = true
+warn_unused_configs = true
+
+[tool.pylint]
+max-line-length = 100
