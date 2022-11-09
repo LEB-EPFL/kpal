@@ -5,7 +5,7 @@ build-backend = "poetry.core.masonry.api"
 [tool.poetry]
 name = "leb.kpal"
 version = "0.0.0"
-description = "Hardware control systems for experimental scientists"
+description = "Hardware control for experimental science"
 authors = ["Kyle M. Douglass <kyle.douglass@epfl.ch>"]
 packages = [
     { include = "leb", from = "src" }
