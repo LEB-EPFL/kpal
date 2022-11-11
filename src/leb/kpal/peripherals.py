@@ -2,13 +2,13 @@
 
 from asyncio import StreamReader, StreamWriter
 from dataclasses import InitVar, dataclass, field
-from enum import Enum, auto
+from enum import IntEnum, auto
 from typing import Callable, Protocol, TypeAlias
 
 import serial_asyncio
 
 
-class PeripheralState(Enum):
+class PeripheralState(IntEnum):
     """Peripherals must be in exactly one of these states at any given time."""
 
     PREINIT = auto()
@@ -31,9 +31,23 @@ class Peripheral(Protocol):
 
     attributes: Attributes
 
+    def __init__(self) -> None:
+        self._state = PeripheralState.PREINIT
+
     @property
     def state(self) -> PeripheralState:
         return self._state
+    
+    @state.setter
+    def state(self, value: PeripheralState) -> None:
+        if value == PeripheralState.ERROR:
+            self._state = value
+            return
+
+        if self._state != value - 1:
+            raise ValueError(f"Cannot advance peripheral from {self._state} to {value}")
+
+        self._state = value
 
 
 @dataclass
