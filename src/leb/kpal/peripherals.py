@@ -11,12 +11,12 @@ import serial_asyncio
 class PeripheralState(IntEnum):
     """Peripherals must be in exactly one of these states at any given time."""
 
-    PREINIT = auto()
-    INIT = auto()
-    RUNNING = auto()
-    SHUTDOWN = auto()
-    POSTSHUTDOWN = auto()
-    ERROR = auto()
+    PREINIT = 0
+    INIT = 1
+    RUNNING = 2
+    SHUTDOWN = 3
+    POSTSHUTDOWN = 4
+    ERROR = -1
 
 
 ValueTypes: TypeAlias = bytes | float | int | str
@@ -30,6 +30,7 @@ class Peripheral(Protocol):
     """The interface to a hardware device."""
 
     attributes: Attributes
+    _state: PeripheralState
 
     def __init__(self) -> None:
         self._state = PeripheralState.PREINIT
