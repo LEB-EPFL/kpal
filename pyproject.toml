@@ -13,7 +13,7 @@ packages = [
 
 [tool.poetry.dependencies]
 pyserial-asyncio = "*"
-python = ">=3.10,<3.12"
+python = ">=3.11,<3.12"
 
 [tool.poetry.dev-dependencies]
 black = "*"
