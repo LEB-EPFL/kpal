@@ -7,7 +7,7 @@ class SerialPeripheral(SerialMixin, Peripheral):
     @classmethod
     def build(cls, *args, **kwargs) -> "SerialPeripheral":
         peripheral = cls()
-        url, = args
+        (url,) = args
         SerialMixin.build(peripheral, url, **kwargs)
 
 

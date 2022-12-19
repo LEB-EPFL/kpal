@@ -1,15 +1,13 @@
 """Peripherals provide an interface between hardware and the control system software."""
 
-from asyncio import StreamReader, StreamWriter
-from dataclasses import InitVar, dataclass, field
-from enum import IntEnum
 import inspect
 import logging
+from asyncio import StreamReader, StreamWriter
+from dataclasses import dataclass, field
+from enum import IntEnum
 from typing import Callable, Protocol, TypeAlias
-from uuid import UUID
 
 import serial_asyncio
-
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +28,7 @@ Value: TypeAlias = bytes | float | int | str
 
 @dataclass(frozen=True)
 class Attribute:
-    name: str
+    description: str
     getter: Callable[[], Value]
     setter: Callable[[Value], None]
 
@@ -38,25 +36,27 @@ class Attribute:
 class Peripheral(Protocol):
     """The interface to a hardware device."""
 
-    attributes: dict[UUID, Attribute]
+    attributes: dict[str, Attribute]
     _state: PeripheralState
 
     def __init__(self) -> None:
         """Any actual hardware initialization should be done in the"""
         self._state = PeripheralState.PREINIT
 
-    def attributes(self) -> dict[UUID, Attribute]:
+    def attributes(self) -> dict[str, Attribute]:
         """Returns the set of the peripherial's attributes."""
 
     @classmethod
-    def build_args(cls):
-        """Returns the set of keyword arguments that are required to build the peripheral.
-        
+    def build_args(cls) -> dict[str, inspect.Parameter]:
+        """Returns the set of arguments that are required to build the peripheral.
+
         This method traverses the class hierarchy for the peripheral instance and discovers the
-        kwargs of the build methods of all the parent classes. Classes are traversed in the
+        arguments of the build methods of all the parent classes. Classes are traversed in the
         order of the Python MRO: left to right, then bottom to top.
 
         """
+        build_args = {}
+
         # Skip the first class in the MRO, which is the class itself.
         for klass in cls.__mro__[1:]:
             try:
@@ -64,23 +64,42 @@ class Peripheral(Protocol):
                     logger.debug(
                         "Stopping build argument discovery of class %s because Peripheral class "
                         "was reached while traversing its MRO",
-                        cls
+                        cls,
                     )
                     break
 
-                print(klass, inspect.signature(klass.build))
+                # Filter out self, args, and kwargs arguments
+                parameters = {
+                    k: v
+                    for k, v in inspect.signature(klass.build).parameters.items()
+                    if k not in ["self", "args", "kwargs"]
+                }
+
+                if duplicates := [k for k in parameters.keys() if k in build_args]:
+                    logger.warning(
+                        "Duplicate build_args detected for parent %s of class %s: %s. Two "
+                        "different Mixins are using the same build method argument names",
+                        klass,
+                        cls,
+                        duplicates,
+                    )
+
+                build_args.update(parameters)
+
             except AttributeError:
                 logger.debug(
                     "Could not find build method of parent class %s while discovering build kwargs "
                     "for class %s",
                     klass,
-                    cls
+                    cls,
                 )
+                continue
+
+            return build_args
 
     @classmethod
     async def build(cls, *args, **kwargs) -> "Peripheral":
         """Builds an instance of the peripheral, performing any hardware initialization."""
-
 
     @property
     def state(self) -> PeripheralState:
@@ -92,18 +111,17 @@ class Peripheral(Protocol):
 class SerialMixin:
     """A hardware device that employs serial communication."""
 
-    term_chars: InitVar[bytes] = b"\n"
+    term_chars: bytes = field(init=False)
 
     _reader: StreamReader = field(init=False, repr=False)
     _writer: StreamWriter = field(init=False, repr=False)
 
-    def __post_init__(self, term_chars: bytes) -> None:
+    def __post_init__(self) -> None:
         super().__init__()
-        self._term_chars = term_chars
 
     async def build(self, url: str, baudrate: int = 115200, term_chars: bytes = b"\n", **kwargs):
         """Initializes the serial mixin data and opens a serial connection to the device."""
-        self._term_chars = term_chars
+        self.term_chars = term_chars
         self._reader, self._writer = await serial_asyncio.open_serial_connection(
             url=url, baudrate=baudrate
         )
