@@ -10,6 +10,8 @@ class SerialPeripheral(SerialMixin, Peripheral):
         (url,) = args
         SerialMixin.build(peripheral, url, **kwargs)
 
+        return peripheral
+
 
 @pytest.fixture
 def serial_peripheral():

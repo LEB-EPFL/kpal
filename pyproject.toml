@@ -37,8 +37,7 @@ envlist =
     isort
     mypy
     pylint
-    py310
-    py311
+    py3
 isolated_build = True
 
 [testenv]
@@ -66,7 +65,7 @@ skip_install = True
 commands =
     black: black --check --diff .
     isort: isort --check --diff .
-    mypy: mypy .
+    mypy: mypy src
     pylint: pylint src
 """
 
@@ -79,6 +78,10 @@ profile = "black"
 [tool.mypy]
 warn_return_any = true
 warn_unused_configs = true
+
+[[tool.mypy.overrides]]
+module = "serial_asyncio.*"
+ignore_missing_imports = true
 
 [tool.pylint]
 max-line-length = 100

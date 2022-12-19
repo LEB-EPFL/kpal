@@ -28,6 +28,8 @@ Value: TypeAlias = bytes | float | int | str
 
 @dataclass(frozen=True)
 class Attribute:
+    """A peripheral attribute and its associated getter and setter."""
+
     description: str
     getter: Callable[[], Value]
     setter: Callable[[Value], None]
@@ -42,9 +44,6 @@ class Peripheral(Protocol):
     def __init__(self) -> None:
         """Any actual hardware initialization should be done in the"""
         self._state = PeripheralState.PREINIT
-
-    def attributes(self) -> dict[str, Attribute]:
-        """Returns the set of the peripherial's attributes."""
 
     @classmethod
     def build_args(cls) -> dict[str, inspect.Parameter]:
@@ -71,7 +70,7 @@ class Peripheral(Protocol):
                 # Filter out self, args, and kwargs arguments
                 parameters = {
                     k: v
-                    for k, v in inspect.signature(klass.build).parameters.items()
+                    for k, v in inspect.signature(klass.build).parameters.items()  # type: ignore
                     if k not in ["self", "args", "kwargs"]
                 }
 
@@ -95,7 +94,7 @@ class Peripheral(Protocol):
                 )
                 continue
 
-            return build_args
+        return build_args
 
     @classmethod
     async def build(cls, *args, **kwargs) -> "Peripheral":
@@ -119,7 +118,7 @@ class SerialMixin:
     def __post_init__(self) -> None:
         super().__init__()
 
-    async def build(self, url: str, baudrate: int = 115200, term_chars: bytes = b"\n", **kwargs):
+    async def build(self, url: str, baudrate: int = 115200, term_chars: bytes = b"\n", **_):
         """Initializes the serial mixin data and opens a serial connection to the device."""
         self.term_chars = term_chars
         self._reader, self._writer = await serial_asyncio.open_serial_connection(
@@ -128,8 +127,8 @@ class SerialMixin:
 
     async def recv(self) -> None:
         """Receives a message from the device."""
-        _ = await self._reader.readuntil(self._term_chars)
+        _ = await self._reader.readuntil(self.term_chars)
 
     async def send(self, msg: bytes) -> None:
         """Sends a message to the device."""
-        self._writer.send(msg)
+        self._writer.write(msg)
