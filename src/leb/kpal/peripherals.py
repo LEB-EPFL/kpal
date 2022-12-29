@@ -42,7 +42,7 @@ class Peripheral(Protocol):
     _state: PeripheralState
 
     def __init__(self) -> None:
-        """Any actual hardware initialization should be done in the"""
+        """Any actual hardware initialization should be done in the build method."""
         self._state = PeripheralState.PREINIT
 
     @classmethod
@@ -57,7 +57,7 @@ class Peripheral(Protocol):
         build_args = {}
 
         # Skip the first class in the MRO, which is the class itself.
-        for klass in cls.__mro__[1:]:
+        for klass in cls.__mro__:
             try:
                 if klass.__name__ == "Peripheral":
                     logger.debug(
@@ -67,11 +67,11 @@ class Peripheral(Protocol):
                     )
                     break
 
-                # Filter out self, args, and kwargs arguments
+                # Filter out self, args, kwargs, and _ arguments
                 parameters = {
                     k: v
                     for k, v in inspect.signature(klass.build).parameters.items()  # type: ignore
-                    if k not in ["self", "args", "kwargs"]
+                    if k not in ["self", "args", "kwargs", "_"]
                 }
 
                 if duplicates := [k for k in parameters.keys() if k in build_args]:

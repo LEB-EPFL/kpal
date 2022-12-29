@@ -1,6 +1,11 @@
+import asyncio
+import importlib
+import pkgutil
 from dataclasses import dataclass, field
+from types import ModuleType
 from typing import Optional
 
+import leb.kpal.plugins
 from leb.kpal.peripherals import Peripheral, Value
 
 
@@ -23,23 +28,37 @@ class Core:
     """
 
     peripherals: dict[str, Peripheral] = field(default_factory=dict)
+    plugins: dict[str, ModuleType] = field(init=False)
 
-    def resolve_names(self, peripheral_name: str, attribute_name: Optional[str]) -> tuple(str, str):
+    def __post_init__(self):
+        self.plugins = self.import_plugins()
+
+    def import_plugins(self) -> dict[str, ModuleType]:
+        # Needed to find any plugins installed after this function was first called
+        importlib.invalidate_caches()
+
+        discovered_plugins = {
+            name: importlib.import_module(name) for _, name, _ in iter_namespace(leb.kpal.plugins)
+        }
+
+        return discovered_plugins
+
+    def resolve_names(self, peripheral_name: str, attribute_name: Optional[str]) -> tuple[str, str]:
         """Resolves peripheral and attribute names into their corresponding objects."""
-        if peripheral := self.peripherals.get(peripheral_name) is None:
+        if (peripheral := self.peripherals.get(peripheral_name)) is None:
             raise KPALPeripheralError(f"Peripheral {peripheral_name} does not exist")
 
         if attribute_name is None:
             return peripheral, None
 
-        if attribute := peripheral.attributes.get(attribute_name) is None:
+        if (attribute := peripheral.attributes.get(attribute_name)) is None:
             raise KPALAttributeError(
                 f"Attribute {attribute_name} does not exist for peripheral {peripheral_name}"
             )
 
         return peripheral, attribute
 
-    async def create_peripheral(self, peripheral: Peripheral, name: str, *args, **kwargs):
+    async def build_peripheral(self, peripheral: Peripheral, name: str, *args, **kwargs):
         """Creates a new peripheral instance."""
         if name in self.peripherals:
             raise KPALPeripheralError(
@@ -52,14 +71,46 @@ class Core:
 
     async def get_attribute(self, peripheral_name: str, attribute_name: str) -> Value:
         """Gets the value of a peripheral attribute."""
-        _, attribute = self.resolve_names(peripheral_name, attribute_name)
+        peripheral, attribute = self.resolve_names(peripheral_name, attribute_name)
 
-        response = await attribute.getter()
+        response = await attribute.getter(peripheral)
 
         return response
 
-    async def set_attribute(self, value: Value, peripheral_name: str, attribute_name: str) -> None:
+    async def set_attribute(self, peripheral_name: str, attribute_name: str, value: Value) -> None:
         """Sets the value of a peripheral attribute."""
-        _, attribute = self.resolve_names(peripheral_name, attribute_name)
+        peripheral, attribute = self.resolve_names(peripheral_name, attribute_name)
 
-        await attribute.setter(value)
+        await attribute.setter(peripheral, value)
+
+
+def iter_namespace(ns_pkg: ModuleType):
+    # Specifying the second argument (prefix) to iter_modules makes the
+    # returned name an absolute name instead of a relative one. This allows
+    # import_module to work without having to do additional modification to
+    # the name.
+    return pkgutil.iter_modules(ns_pkg.__path__, ns_pkg.__name__ + ".")
+
+
+async def main():
+    core = Core()
+    print(core.plugins)
+
+    plugin = core.plugins["leb.kpal.plugins.dummy"].Plugin
+    build_args = plugin.build_args()
+    print(build_args)
+
+    peripheral_name = "my cool peripheral"
+    await core.build_peripheral(plugin, peripheral_name, "hello world")
+    print(core.peripherals)
+    print(core.peripherals[peripheral_name].attributes)
+
+    print(await core.get_attribute(peripheral_name, "foo"))
+    print(await core.get_attribute(peripheral_name, "bar"))
+
+    await core.set_attribute(peripheral_name, "bar", 999.0)
+    print(await core.get_attribute(peripheral_name, "bar"))
+
+
+if __name__ == "__main__":
+    asyncio.run(main())
