@@ -55,6 +55,9 @@ class Buffer:
         size = capacity // dtype.itemsize  # number of items in the buffer
         self.data = np.ndarray((size,), dtype=dtype, buffer=self._shm.buf)
 
+        # Prevents consumers from modifying the data; don't touch this
+        self.data.flags.writeable = self._writeable
+
     def close(self):
         self._shm.close()
 
