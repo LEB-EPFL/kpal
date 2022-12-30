@@ -3,7 +3,7 @@
 import asyncio
 import inspect
 import logging
-from dataclasses import dataclass, field
+from dataclasses import InitVar, dataclass, field
 from enum import IntEnum
 from functools import partial
 from multiprocessing import shared_memory
@@ -39,7 +39,7 @@ class Attribute:
 
 class Peripheral(Protocol):
     """The interface to a hardware device.
-    
+
     All peripherals have a lock that is used by the core to serialize access to the device.
 
     """
@@ -145,46 +145,49 @@ class SerialMixin:
 @dataclass
 class Buffer:
     """A shared memory buffer."""
+
     capacity: int
-    shm: shared_memory.SharedMemory
+    shm: InitVar[shared_memory.SharedMemory]
+
+    name: str = field(init=False)
+    _shm: shared_memory.SharedMemory = field(init=False, repr=False)
+
+    def __post_init__(self, shm: shared_memory.SharedMemory):
+        self._shm = shm
+        self.name = shm.name
 
     def close(self):
-        self.shm.close()
-        self.shm.unlink()
+        self._shm.close()
+        self._shm.unlink()
 
     def __del__(self):
         try:
             self.close()
         except:
-            logger.debug(
-                "Shared memory buffer %s was already closed and unlinked",
-                self.shm.name
-            )
+            logger.debug("Shared memory buffer %s was already closed and unlinked", self._shm.name)
 
 
 def _init_buffer(capacity: int) -> Buffer:
     shm = shared_memory.SharedMemory(create=True, size=capacity)
-    
+
     return Buffer(capacity, shm)
 
 
 @dataclass
 class ProducerMixin:
     """A hardware device that produces array-like data.
-    
+
     Data created by a Producer is placed into a shared memory buffer that may be *READ* by multiple
-    consumers. Each buffer is written to by only one Producer.
+    consumers. Only the peripheral writes to the buffer.
 
     """
 
-    buffers: dict[str, Buffer | None] = field(init=False, default_factory=dict)
+    buffer: Buffer = field(init=False)
 
     def __post_init__(self) -> None:
         super().__init__()
 
-    async def build(self, capacities: dict[str, int]):
-        for name, capacity in capacities.items():
-            loop = asyncio.get_running_loop()
-            buffer = await loop.run_in_executor(None, partial(_init_buffer, capacity))
-            self.buffers[name] = buffer
-
+    async def build(self, capacity: int):
+        loop = asyncio.get_running_loop()
+        buffer = await loop.run_in_executor(None, partial(_init_buffer, capacity))
+        self.buffer = buffer
