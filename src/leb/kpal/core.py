@@ -58,22 +58,26 @@ class Core:
 
         return peripheral, attribute
 
-    async def build_peripheral(self, peripheral: Peripheral, name: str, *args, **kwargs):
+    async def build_peripheral(self, peripheral_type: Peripheral, name: str, *args, **kwargs):
         """Creates a new peripheral instance."""
         if name in self.peripherals:
             raise KPALPeripheralError(
                 "Cannot create peripheral with name '{name}' because the name already exists"
             )
 
-        p = await peripheral.build(args, kwargs)
+        peripheral = await peripheral_type.build(args, kwargs)
 
-        self.peripherals[name] = p
+        self.peripherals[name] = peripheral
 
     async def get_attribute(self, peripheral_name: str, attribute_name: str) -> Value:
         """Gets the value of a peripheral attribute."""
         peripheral, attribute = self.resolve_names(peripheral_name, attribute_name)
 
-        response = await attribute.getter(peripheral)
+        await peripheral.lock.acquire()
+        try:
+            response = await attribute.getter(peripheral)
+        finally:
+            peripheral.lock.release()
 
         return response
 
@@ -81,7 +85,11 @@ class Core:
         """Sets the value of a peripheral attribute."""
         peripheral, attribute = self.resolve_names(peripheral_name, attribute_name)
 
-        await attribute.setter(peripheral, value)
+        await peripheral.lock.acquire()
+        try:
+            await attribute.setter(peripheral, value)
+        finally:
+            peripheral.lock.release()
 
 
 def iter_namespace(ns_pkg: ModuleType):

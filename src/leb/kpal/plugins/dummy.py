@@ -48,6 +48,7 @@ class Plugin(Peripheral):
     }
 
     def __init__(self) -> None:
+        super().__init__()
         self.foo = 42
         self.bar = 42.0
         self.baz = "42"

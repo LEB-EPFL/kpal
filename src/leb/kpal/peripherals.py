@@ -1,8 +1,8 @@
 """Peripherals provide an interface between hardware and the control system software."""
 
+import asyncio
 import inspect
 import logging
-from asyncio import StreamReader, StreamWriter
 from dataclasses import dataclass, field
 from enum import IntEnum
 from typing import Callable, Protocol, TypeAlias
@@ -36,13 +36,19 @@ class Attribute:
 
 
 class Peripheral(Protocol):
-    """The interface to a hardware device."""
+    """The interface to a hardware device.
+    
+    All peripherals have a lock that is used by the core to serialize access to the device.
+
+    """
 
     attributes: dict[str, Attribute]
+    lock: asyncio.Lock
     _state: PeripheralState
 
     def __init__(self) -> None:
         """Any actual hardware initialization should be done in the build method."""
+        self.lock = asyncio.Lock()
         self._state = PeripheralState.PREINIT
 
     @classmethod
@@ -112,8 +118,8 @@ class SerialMixin:
 
     term_chars: bytes = field(init=False)
 
-    _reader: StreamReader = field(init=False, repr=False)
-    _writer: StreamWriter = field(init=False, repr=False)
+    _reader: asyncio.StreamReader = field(init=False, repr=False)
+    _writer: asyncio.StreamWriter = field(init=False, repr=False)
 
     def __post_init__(self) -> None:
         super().__init__()
