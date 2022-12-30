@@ -11,6 +11,8 @@ from typing import Callable, Protocol, TypeAlias
 
 import serial_asyncio
 
+from leb.kpal.buffer import Buffer
+
 logger = logging.getLogger(__name__)
 
 
@@ -142,35 +144,8 @@ class SerialMixin:
         self._writer.write(msg)
 
 
-@dataclass
-class Buffer:
-    """A shared memory buffer."""
-
-    capacity: int
-    shm: InitVar[shared_memory.SharedMemory]
-
-    name: str = field(init=False)
-    _shm: shared_memory.SharedMemory = field(init=False, repr=False)
-
-    def __post_init__(self, shm: shared_memory.SharedMemory):
-        self._shm = shm
-        self.name = shm.name
-
-    def close(self):
-        self._shm.close()
-        self._shm.unlink()
-
-    def __del__(self):
-        try:
-            self.close()
-        except:
-            logger.debug("Shared memory buffer %s was already closed and unlinked", self._shm.name)
-
-
 def _init_buffer(capacity: int) -> Buffer:
-    shm = shared_memory.SharedMemory(create=True, size=capacity)
-
-    return Buffer(capacity, shm)
+    return Buffer(capacity, create=True)
 
 
 @dataclass

@@ -1,5 +1,3 @@
-from typing import TypedDict
-
 from leb.kpal.peripherals import Attribute, Peripheral, PeripheralState, ProducerMixin
 
 
@@ -28,10 +26,6 @@ async def get_baz(self: "Plugin") -> str:
 async def set_baz(self: "Plugin", value: str) -> None:
     """Sets the value of baz"""
     self.baz = value
-
-
-class Capacities(TypedDict):
-    buf: int
 
 
 class Plugin(ProducerMixin, Peripheral):
