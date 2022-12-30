@@ -12,6 +12,7 @@ packages = [
 ]
 
 [tool.poetry.dependencies]
+numpy = "*"
 pyserial-asyncio = "*"
 python = ">=3.11,<3.12"
 
@@ -78,6 +79,8 @@ profile = "black"
 [tool.mypy]
 warn_return_any = true
 warn_unused_configs = true
+
+plugins = "numpy.typing.mypy_plugin"
 
 [[tool.mypy.overrides]]
 module = "serial_asyncio.*"
