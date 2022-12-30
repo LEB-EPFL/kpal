@@ -1,4 +1,4 @@
-from leb.kpal.peripherals import Attribute, Peripheral, PeripheralState
+from leb.kpal.peripherals import Attribute, Peripheral, PeripheralState, ProducerMixin
 
 
 async def get_foo(self: "Plugin") -> int:
@@ -28,7 +28,7 @@ async def set_baz(self: "Plugin", value: str) -> None:
     self.baz = value
 
 
-class Plugin(Peripheral):
+class Plugin(ProducerMixin, Peripheral):
     attributes = {
         "foo": Attribute(
             description="foo",
@@ -54,10 +54,13 @@ class Plugin(Peripheral):
         self.baz = "42"
 
     @classmethod
-    async def build(cls, msg: str, *args, **kwargs) -> "Plugin":
+    async def build(cls, msg: str, **kwargs) -> "Plugin":
         peripheral = cls()
-        peripheral._state = PeripheralState.RUNNING
+        peripheral._state = PeripheralState.INIT
 
+        await ProducerMixin.build(peripheral, kwargs["capacities"])
+
+        peripheral._state = PeripheralState.RUNNING
         print(msg)
 
         return peripheral

@@ -6,7 +6,7 @@ from types import ModuleType
 from typing import Optional
 
 import leb.kpal.plugins
-from leb.kpal.peripherals import Peripheral, Value
+from leb.kpal.peripherals import Attribute, Peripheral, Value
 
 
 class KPALPeripheralError(Exception):
@@ -43,7 +43,7 @@ class Core:
 
         return discovered_plugins
 
-    def resolve_names(self, peripheral_name: str, attribute_name: Optional[str]) -> tuple[str, str]:
+    def resolve_names(self, peripheral_name: str, attribute_name: Optional[str]) -> tuple[Peripheral, Optional[Attribute]]:
         """Resolves peripheral and attribute names into their corresponding objects."""
         if (peripheral := self.peripherals.get(peripheral_name)) is None:
             raise KPALPeripheralError(f"Peripheral {peripheral_name} does not exist")
@@ -65,7 +65,7 @@ class Core:
                 "Cannot create peripheral with name '{name}' because the name already exists"
             )
 
-        peripheral = await peripheral_type.build(args, kwargs)
+        peripheral = await peripheral_type.build(*args, **kwargs)
 
         self.peripherals[name] = peripheral
 
@@ -109,7 +109,8 @@ async def main():
     print(build_args)
 
     peripheral_name = "my cool peripheral"
-    await core.build_peripheral(plugin, peripheral_name, "hello world")
+    capacities = {"buf": 4096}
+    await core.build_peripheral(plugin, peripheral_name, "hello world", capacities=capacities)
     print(core.peripherals)
     print(core.peripherals[peripheral_name].attributes)
 
