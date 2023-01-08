@@ -1,6 +1,10 @@
 import asyncio
+import atexit
 import importlib
+import logging
 import pkgutil
+import queue
+import threading
 from dataclasses import dataclass, field
 from types import ModuleType
 from typing import Optional
@@ -9,12 +13,39 @@ import leb.kpal.plugins
 from leb.kpal.peripherals import Attribute, Peripheral, Value
 
 
+logger = logging.getLogger(__name__)
+
+
 class KPALPeripheralError(Exception):
     """Raised when performing an operation on a peripheral"""
 
 
-class KPALAttributeError(Exception):
-    """Raised when performing an operation on a peripheral attribute"""
+class Event:
+    """A KPAL event to be handled by the event handler"""
+
+class Shutdown(Event):
+    """Signals the event handler to shut down"""
+
+
+def event_handler(event_queue: queue.Queue) -> None:
+    logger.debug("Event handler started")
+    while True:
+        event = event_queue.get()
+
+        match event:
+            case Shutdown():
+                logger.info("Event handler received the shutdown event. Shutting down...")
+                event_queue.task_done()
+                break
+            case _:
+                logger.warning("Not implemented")
+
+    logger.info("Event handler successfully shutdown")
+
+
+def shutdown_handler(event_queue: queue.Queue, event_thread: threading.Thread) -> None:
+    event_queue.put_nowait(Shutdown())
+    event_thread.join()
 
 
 @dataclass
@@ -24,14 +55,28 @@ class Core:
     Attributes
     ----------
     peripherals : dict[str, Peripheral]
+    plugins : dict[str, types.ModuleType]
 
     """
 
     peripherals: dict[str, Peripheral] = field(default_factory=dict)
+    event_queue: queue.Queue = field(init=False)
+    event_thread: threading.Thread = field(init=False)
     plugins: dict[str, ModuleType] = field(init=False)
 
     def __post_init__(self):
         self.plugins = self.import_plugins()
+
+        self.event_queue = queue.Queue()
+        self.event_thread = threading.Thread(
+            target=event_handler,
+            name="kpal-event-handler",
+            args=(self.event_queue,)
+        )
+
+        logger.debug("Starting the event handler")
+        self.event_thread.start()
+        atexit.register(shutdown_handler, self.event_queue, self.event_thread)
 
     def import_plugins(self) -> dict[str, ModuleType]:
         # Needed to find any plugins installed after this function was first called
@@ -54,7 +99,7 @@ class Core:
             return peripheral, None
 
         if (attribute := peripheral.attributes.get(attribute_name)) is None:
-            raise KPALAttributeError(
+            raise KPALPeripheralError(
                 f"Attribute {attribute_name} does not exist for peripheral {peripheral_name}"
             )
 
@@ -121,6 +166,9 @@ async def main():
 
     await core.set_attribute(peripheral_name, "bar", 999.0)
     print(await core.get_attribute(peripheral_name, "bar"))
+
+    await asyncio.sleep(0.5)
+    core.event_queue.put(Shutdown())
 
 
 if __name__ == "__main__":
