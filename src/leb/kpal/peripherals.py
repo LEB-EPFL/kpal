@@ -48,11 +48,13 @@ class Peripheral(Protocol):
     """
 
     attributes: dict[str, Attribute]
+    event_queue: queue.Queue
     lock: asyncio.Lock
     _state: PeripheralState
 
-    def __init__(self) -> None:
+    def __init__(self, event_queue: queue.Queue) -> None:
         """Any actual hardware initialization should be done in the build method."""
+        self.event_queue = event_queue
         self.lock = asyncio.Lock()
         self._state = PeripheralState.PREINIT
 
@@ -149,7 +151,6 @@ def _init_buffer(capacity: int) -> Buffer:
     return Buffer(capacity, create=True)
 
 
-@dataclass
 class ProducerMixin:
     """A hardware device that produces array-like data.
 
@@ -158,15 +159,10 @@ class ProducerMixin:
 
     """
 
-    event_queue: queue.Queue = field(init=False)
-    buffer: Buffer = field(init=False)
+    def __init__(self, *args, **kwargs) -> None:
+        super().__init__(*args, **kwargs)
 
-    def __post_init__(self) -> None:
-        super().__init__()
-
-    async def build(self, capacity: int, event_queue: queue.Queue):
-        self.event_queue = event_queue
-
+    async def build(self, capacity: int):
         loop = asyncio.get_running_loop()
         buffer = await loop.run_in_executor(None, partial(_init_buffer, capacity))
         self.buffer = buffer

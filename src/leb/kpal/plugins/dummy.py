@@ -49,18 +49,18 @@ class Plugin(ProducerMixin, Peripheral):
         ),
     }
 
-    def __init__(self) -> None:
-        super().__init__()
+    def __init__(self, event_queue: queue.Queue) -> None:
+        super().__init__(event_queue)
         self.foo = 42
         self.bar = 42.0
         self.baz = "42"
 
     @classmethod
     async def build(cls, msg: str, **kwargs) -> "Plugin":
-        peripheral = cls()
+        peripheral = cls(kwargs["event_queue"])
         peripheral._state = PeripheralState.INIT
 
-        await ProducerMixin.build(peripheral, kwargs["capacity"], kwargs["event_queue"])
+        await ProducerMixin.build(peripheral, kwargs["capacity"])
 
         peripheral._state = PeripheralState.RUNNING
         print(msg)
