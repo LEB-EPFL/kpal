@@ -112,6 +112,8 @@ class Core:
                 "Cannot create peripheral with name '{name}' because the name already exists"
             )
 
+        # The peripheral needs the event queue to send events to the handler
+        kwargs.update({"event_queue": self.event_queue})
         peripheral = await peripheral_type.build(*args, **kwargs)
 
         self.peripherals[name] = peripheral

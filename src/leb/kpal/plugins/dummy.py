@@ -1,3 +1,5 @@
+import queue
+
 from leb.kpal.peripherals import Attribute, Peripheral, PeripheralState, ProducerMixin
 
 
@@ -58,7 +60,7 @@ class Plugin(ProducerMixin, Peripheral):
         peripheral = cls()
         peripheral._state = PeripheralState.INIT
 
-        await ProducerMixin.build(peripheral, kwargs["capacity"])
+        await ProducerMixin.build(peripheral, kwargs["capacity"], kwargs["event_queue"])
 
         peripheral._state = PeripheralState.RUNNING
         print(msg)

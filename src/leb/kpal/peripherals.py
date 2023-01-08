@@ -3,6 +3,7 @@
 import asyncio
 import inspect
 import logging
+import queue
 from dataclasses import InitVar, dataclass, field
 from enum import IntEnum
 from functools import partial
@@ -157,12 +158,15 @@ class ProducerMixin:
 
     """
 
+    event_queue: queue.Queue = field(init=False)
     buffer: Buffer = field(init=False)
 
     def __post_init__(self) -> None:
         super().__init__()
 
-    async def build(self, capacity: int):
+    async def build(self, capacity: int, event_queue: queue.Queue):
+        self.event_queue = event_queue
+
         loop = asyncio.get_running_loop()
         buffer = await loop.run_in_executor(None, partial(_init_buffer, capacity))
         self.buffer = buffer
