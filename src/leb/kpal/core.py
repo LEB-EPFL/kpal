@@ -12,7 +12,6 @@ from typing import Optional
 import leb.kpal.plugins
 from leb.kpal.peripherals import Attribute, Peripheral, Value
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -22,6 +21,7 @@ class KPALPeripheralError(Exception):
 
 class Event:
     """A KPAL event to be handled by the event handler"""
+
 
 class Shutdown(Event):
     """Signals the event handler to shut down"""
@@ -69,9 +69,7 @@ class Core:
 
         self.event_queue = queue.Queue()
         self.event_thread = threading.Thread(
-            target=event_handler,
-            name="kpal-event-handler",
-            args=(self.event_queue,)
+            target=event_handler, name="kpal-event-handler", args=(self.event_queue,)
         )
 
         logger.debug("Starting the event handler")
@@ -158,7 +156,7 @@ async def main():
     print(build_args)
 
     peripheral_name = "my cool peripheral"
-    capacity = 4096
+    capacity = 1024
     await core.build_peripheral(plugin, peripheral_name, "hello world", capacity=capacity)
     print(core.peripherals)
     print(core.peripherals[peripheral_name].attributes)

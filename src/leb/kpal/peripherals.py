@@ -4,15 +4,14 @@ import asyncio
 import inspect
 import logging
 import queue
-from dataclasses import InitVar, dataclass, field
+from dataclasses import dataclass, field
 from enum import IntEnum
 from functools import partial
-from multiprocessing import shared_memory
 from typing import Callable, Protocol, TypeAlias
 
 import serial_asyncio
 
-from leb.kpal.buffer import Buffer
+from leb.kpal.buffer import BufferedArray
 
 logger = logging.getLogger(__name__)
 
@@ -147,8 +146,8 @@ class SerialMixin:
         self._writer.write(msg)
 
 
-def _init_buffer(capacity: int) -> Buffer:
-    return Buffer(capacity, create=True)
+def _init_buffer(capacity: int) -> BufferedArray:
+    return BufferedArray(capacity, create=True)
 
 
 class ProducerMixin:
