@@ -12,6 +12,7 @@ logger = logging.getLogger(__name__)
 
 
 def _bytes_needed(capacity: int, dtype: npt.DTypeLike) -> int:
+    """Finds bytes needed to hold an integer number of items within a given capacity."""
     arr_dtype = np.dtype(dtype)
     if capacity < arr_dtype.itemsize:
         raise ValueError(
@@ -21,18 +22,6 @@ def _bytes_needed(capacity: int, dtype: npt.DTypeLike) -> int:
         )
     num_bytes = (capacity // dtype.itemsize) * dtype.itemsize
     return num_bytes
-
-
-def _close(buffered_array):
-    buffered_array._shm.close()
-
-    if buffered_array._writeable:
-        try:
-            buffered_array._shm.unlink()
-        except FileNotFoundError:
-            logger.debug(
-                "Shared memory buffer %s was already closed and unlinked", buffered_array._shm.name
-            )
 
 
 class BufferedArray(np.ndarray):
@@ -45,27 +34,31 @@ class BufferedArray(np.ndarray):
     """
 
     def __new__(
-        cls,
+        subtype,
         capacity: int,
         name: Optional[str] = None,
-        create: bool =False,
+        create: bool = False,
         dtype: npt.DTypeLike = np.int16,
         offset: int =0,
         strides: tuple[int, ...] = None,
         order=None,
-    ) -> np.ndarray:
+    ) -> "BufferedArray":
         dtype = np.dtype(dtype)
         capacity = _bytes_needed(capacity, dtype)
         shm = shared_memory.SharedMemory(name=name, create=create, size=capacity)
 
         size = capacity // dtype.itemsize  # number of items in the buffer
         obj = super().__new__(
-            cls, (size,), dtype=dtype, buffer=shm.buf, offset=offset, strides=strides, order=order
+            subtype, (size,), dtype=dtype, buffer=shm.buf, offset=offset, strides=strides, order=order
         )
+
+        # Convert from np.ndarray to BufferedArray
+        obj = obj.view(subtype)
 
         obj._writeable = create
         obj._shm = shm
-        atexit.register(_close, obj)
+        obj._write_idx = 0
+        atexit.register(obj.close)
 
         # Prevents consumers from modifying the data; don't touch this
         obj.flags.writeable = create
@@ -77,4 +70,28 @@ class BufferedArray(np.ndarray):
             return
 
         self._writeable = getattr(obj, "_writeable", False)
-        self._shm = getattr(obj, "_shm")
+
+    def close(self) -> None:
+        self._shm.close()
+
+        if self._writeable:
+            try:
+                self._shm.unlink()
+            except FileNotFoundError:
+                logger.debug(
+                    "Shared memory buffer %s was already closed and unlinked", self._shm.name
+                )
+
+    def put(self, data: npt.ArrayLike):
+        """Puts an existing ndarray into the buffer."""
+        arr = np.asanyarray(data)
+
+        if arr.nbytes > self.nbytes:
+            raise ValueError("Item is too large to put into the buffer")
+
+        if arr.dtype != self.dtype:
+            raise ValueError("dtypes of input array and BufferedArrays do not match")
+
+        # TODO Handle wrap-around
+        self[self._write_idx:arr.size] = np.ravel(arr)
+        self._write_idx += arr.size
