@@ -1,5 +1,7 @@
 import queue
 
+import numpy as np
+
 from leb.kpal.peripherals import Attribute, Peripheral, PeripheralState, ProducerMixin
 
 
@@ -66,3 +68,9 @@ class Plugin(ProducerMixin, Peripheral):
         print(msg)
 
         return peripheral
+
+    async def produce(self):
+        dtype = self.buffer.dtype
+        data = np.array([0, 1], dtype=dtype)
+        
+        self.buffer.put(data)

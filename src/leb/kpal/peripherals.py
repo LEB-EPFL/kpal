@@ -4,6 +4,7 @@ import asyncio
 import inspect
 import logging
 import queue
+from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import IntEnum
 from functools import partial
@@ -150,7 +151,7 @@ def _init_buffer(capacity: int) -> BufferedArray:
     return BufferedArray(capacity, create=True)
 
 
-class ProducerMixin:
+class ProducerMixin(ABC):
     """A hardware device that produces array-like data.
 
     Data created by a Producer is placed into a shared memory buffer that may be *READ* by multiple
@@ -165,3 +166,8 @@ class ProducerMixin:
         loop = asyncio.get_running_loop()
         buffer = await loop.run_in_executor(None, partial(_init_buffer, capacity))
         self.buffer = buffer
+
+        
+    @abstractmethod
+    async def produce(self):
+        """Produce an array of data and put it in the buffer."""
