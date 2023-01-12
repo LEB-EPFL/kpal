@@ -39,7 +39,7 @@ class BufferedArray(np.ndarray):
         name: Optional[str] = None,
         create: bool = False,
         dtype: npt.DTypeLike = np.int16,
-        offset: int =0,
+        offset: int = 0,
         strides: tuple[int, ...] = None,
         order=None,
     ) -> "BufferedArray":
@@ -47,9 +47,15 @@ class BufferedArray(np.ndarray):
         capacity = _bytes_needed(capacity, dtype)
         shm = shared_memory.SharedMemory(name=name, create=create, size=capacity)
 
-        size = capacity // dtype.itemsize  # number of items in the buffer
+        size = capacity // dtype.itemsize  # maximum number of items in the buffer
         obj = super().__new__(
-            subtype, (size,), dtype=dtype, buffer=shm.buf, offset=offset, strides=strides, order=order
+            subtype,
+            (size,),
+            dtype=dtype,
+            buffer=shm.buf,
+            offset=offset,
+            strides=strides,
+            order=order,
         )
 
         # Convert from np.ndarray to BufferedArray
@@ -84,14 +90,23 @@ class BufferedArray(np.ndarray):
 
     def put(self, data: npt.ArrayLike):
         """Puts an existing ndarray into the buffer."""
-        arr = np.asanyarray(data)
+        arr = self._validate(np.asanyarray(data))
 
+        # If self.size = 8, self._write_idx = 5, and arr.size = 4, then current_write_idx is -3 and
+        # next_write_idx is 1.
+        current_write_idx = self._write_idx
+        next_write_idx = (self._write_idx + arr.size) // self.size
+        if next_write_idx > 0:
+            current_write_idx = self._write_idx - self.size  # Should be negative
+
+        self[current_write_idx : (next_write_idx - 1)] = np.ravel(arr)
+
+        self._write_idx = next_write_idx
+
+    def _validate(self, arr: np.ndarray):
+        """Validates input array data."""
         if arr.nbytes > self.nbytes:
             raise ValueError("Item is too large to put into the buffer")
 
         if arr.dtype != self.dtype:
             raise ValueError("dtypes of input array and BufferedArrays do not match")
-
-        # TODO Handle wrap-around
-        self[self._write_idx:arr.size] = np.ravel(arr)
-        self._write_idx += arr.size
