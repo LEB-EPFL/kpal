@@ -105,7 +105,7 @@ class BufferedArray(np.ndarray):
         else:
             next_write_idx = self._write_idx + data.size
 
-        if next_write_idx > self.shape[0]:
+        if current_write_idx < 0:
             # Integer ranges won't work when wrapping around the end of the array, so use an array of
             # indexes instead
             indexes = list(range(current_write_idx, next_write_idx))
