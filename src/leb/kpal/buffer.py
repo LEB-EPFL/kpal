@@ -105,10 +105,13 @@ class BufferedArray(np.ndarray):
         else:
             next_write_idx = self._write_idx + data.size
 
-        # Integer ranges won't work when wrapping around the end of the array, so use an array of
-        # indexes instead
-        indexes = list(range(current_write_idx, next_write_idx))
-        self[indexes] = np.ravel(data)
+        if current_write_idx < 0:
+            # Integer ranges won't work when wrapping around the end of the array, so use an array of
+            # indexes instead
+            indexes = list(range(current_write_idx, next_write_idx))
+            self[indexes] = np.ravel(data)
+        else:
+            self[current_write_idx:next_write_idx] = np.ravel(data)
 
         self._write_idx = next_write_idx
 
@@ -126,7 +129,7 @@ if __name__ == "__main__":
     dtype = np.int16  # 2 bytes / integer
 
     arr = BufferedArray(capacity=capacity, create=True, dtype=dtype)
-    
+
     item1 = np.array([1, 1, 1, 1, 1], dtype)
     item2 = np.array([2, 2, 2, 2], dtype)
     item3 = np.array([3], dtype)
