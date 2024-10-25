@@ -1,4 +1,4 @@
-from .core.buffer import RingBuffer
-from .core.raw_image import PixelFormat, RawImage, RawImageShape
+from .buffer import ImageShape, RingBuffer
+from .core.pixel_format import PixelFormat
 
-__all__ = ["PixelFormat", "RawImage", "RawImageShape", "RingBuffer"]
+__all__ = ["ImageShape", "PixelFormat", "RingBuffer"]
